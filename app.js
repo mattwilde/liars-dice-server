@@ -25,15 +25,15 @@ const localLoginStrategy = require('./src/passport/local-login');
 passport.use('local-signup', localSignupStrategy);
 passport.use('local-login', localLoginStrategy);
 
-// pass the authenticaion checker middleware
-const authCheckMiddleware = require('./src/middleware/auth-check');
-app.use('/api', authCheckMiddleware);
-
 // Use middlewares to set view engine and post json data to the server
 app.use(express.static('public'));
 app.use(cors());
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
+
+// pass the authenticaion checker middleware
+const authCheckMiddleware = require('./src/middleware/auth-check');
+app.use('/api', authCheckMiddleware);
 
 // routes
 var index = require('./src/routes/index');
