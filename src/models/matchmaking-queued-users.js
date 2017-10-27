@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+
 // define the MatchmakingQueuedUsers model schema
 const MatchmakingQueuedUsersSchema = new mongoose.Schema({
   // user: { type: mongoose.Schema.Types.ObjectId, index:true, unique: true },
@@ -16,6 +17,15 @@ MatchmakingQueuedUsersSchema.pre('save', function(next){
     this.created_at = now;
   }
   next();
+});
+
+/**
+ * The pre-save hook method.
+ */
+MatchmakingQueuedUsersSchema.pre('save', function saveHook(next) {
+  const matchmaking = require('../matchmaking/matchmaking.js');
+  matchmaking.onQueueUpdated();
+  return next();
 });
 
 module.exports = mongoose.model('matchmaking-queued-users', MatchmakingQueuedUsersSchema);
