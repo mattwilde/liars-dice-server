@@ -2,19 +2,21 @@
 require('dotenv').config();
 var express = require('express');
 var path = require('path');
-var app = express();
+var app = module.exports = express();
 var mongoose = require('mongoose');
 var bodyParser = require('body-parser');
 var port = 4200;
 var cors = require('cors');
 const passport = require('passport');
+const http = require("http");
+const socketIo = require("socket.io");
 
 // view engine setup
 app.set('views', path.join(__dirname, 'src/views'));
 app.set('view engine', 'jade');
 
 // connect to the database and load models
-require('./src/models').connect(`mongodb://${process.env.LIARS_DICE_DB_AUTH}@clusterliarsdice-shard-00-00-8n69i.mongodb.net:27017,clusterliarsdice-shard-00-01-8n69i.mongodb.net:27017,clusterliarsdice-shard-00-02-8n69i.mongodb.net:27017/test?ssl=true&replicaSet=ClusterLiarsDice-shard-0&authSource=admin`);
+require('./src/models').connect(`mongodb://${process.env.LIARS_DICE_DB_AUTH}@clusterliarsdice-shard-00-00-8n69i.mongodb.net:27017,clusterliarsdice-shard-00-01-8n69i.mongodb.net:27017,clusterliarsdice-shard-00-02-8n69i.mongodb.net:27017/${process.env.LIARS_DICE_DB_NAME}?ssl=true&replicaSet=ClusterLiarsDice-shard-0&authSource=admin`);
 
 // pass the passport middleware
 app.use(passport.initialize());
@@ -40,11 +42,15 @@ var index = require('./src/routes/index');
 var users = require('./src/routes/users');
 var auth = require('./src/routes/auth');
 var api = require('./src/routes/api');
+// var db = require('./src/routes/db');
+var matchmakingQueuedUsers = require('./src/routes/db/matchmaking-queued-users');
 
 app.use('/', index);
 app.use('/users', users);
 app.use('/auth', auth);
 app.use('/api', api);
+// app.use('/db', db);
+app.use('/db/matchmaking_queued_users', matchmakingQueuedUsers);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -64,7 +70,27 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
+
 // Start the server
-app.listen(process.env.PORT || port, function(){
+var server = app.listen(process.env.PORT || port, function(){
   console.log('Server is running on Port: ', process.env.PORT || port);
 });
+
+// socket.io for communicating with clients
+const io = socketIo(server);
+
+io.on("connection", socket => {
+  console.log("New client connected");
+  //TODO: Is there a way to check to see if a user has already connected? If so, we can kill the first connection
+  //      and allow the new one to be used instead of both. (maw)
+
+  socket.on("disconnect", () => {
+    console.log("Client disconnected");
+  });
+  
+  socket.on('joinroom', function (room) {
+    socket.join(room);
+  });
+});
+
+app.set('io', io); // expose socketIO to outside modules so server can push notifications.
