@@ -22,10 +22,10 @@ MatchmakingQueuedUsersSchema.pre('save', function(next){
 /**
  * The pre-save hook method.
  */
-MatchmakingQueuedUsersSchema.pre('save', function saveHook(next) {
+MatchmakingQueuedUsersSchema.post('save', function saveHook(doc) {
   const matchmaking = require('../matchmaking/matchmaking.js');
   matchmaking.onQueueUpdated();
-  return next();
+  // return next();
 });
 
 module.exports = mongoose.model('matchmaking-queued-users', MatchmakingQueuedUsersSchema);

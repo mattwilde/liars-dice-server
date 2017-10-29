@@ -2,12 +2,12 @@ const express = require('express');
 const router = new express.Router();
 
 // Require Item model in our routes module
-var MatchmakingQueuedUsers = require('../models/matchmaking-queued-users');
+var MatchmakingQueuedUsers = require('../../models/matchmaking-queued-users');
 
 /**
  * gets full list of users in matchmaking queue
  */
-router.get('/matchmaking_queued_users', (req, res) => {
+router.get('/', (req, res) => {
   MatchmakingQueuedUsers.find(function (err, users){
     if(err){
       return res.status(500).json(err);
@@ -21,7 +21,7 @@ router.get('/matchmaking_queued_users', (req, res) => {
 /**
  * gets single user in matchmaking queue
  */
-router.get('/matchmaking_queued_users/:userId', (req, res) => {
+router.get('/:userId', (req, res) => {
   MatchmakingQueuedUsers.findOne({ 'user': req.params.userId }, function (err, user){
     if(err){
       return res.status(500).json(err);
@@ -40,7 +40,7 @@ router.get('/matchmaking_queued_users/:userId', (req, res) => {
 /**
  * adds a user to the matchmaking queue
  */
-router.post('/matchmaking_queued_users', (req, res) => {
+router.post('/', (req, res) => {
   const newQueueItem = new MatchmakingQueuedUsers({ 
     user: req.body.userId,
     mode: req.body.mode,
@@ -57,7 +57,7 @@ router.post('/matchmaking_queued_users', (req, res) => {
 /**
  * removes a user from the matchmaking queue
  */
-router.delete('/matchmaking_queued_users/:userId', (req, res) => {
+router.delete('/:userId', (req, res) => {
   MatchmakingQueuedUsers.deleteOne({ 'user': req.params.userId }, function (err){
     if(err){
       return res.status(500).json(err);

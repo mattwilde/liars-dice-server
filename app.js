@@ -2,12 +2,14 @@
 require('dotenv').config();
 var express = require('express');
 var path = require('path');
-var app = express();
+var app = module.exports = express();
 var mongoose = require('mongoose');
 var bodyParser = require('body-parser');
 var port = 4200;
 var cors = require('cors');
 const passport = require('passport');
+const http = require("http");
+const socketIo = require("socket.io");
 
 // view engine setup
 app.set('views', path.join(__dirname, 'src/views'));
@@ -40,13 +42,15 @@ var index = require('./src/routes/index');
 var users = require('./src/routes/users');
 var auth = require('./src/routes/auth');
 var api = require('./src/routes/api');
-var db = require('./src/routes/db');
+// var db = require('./src/routes/db');
+var matchmakingQueuedUsers = require('./src/routes/db/matchmaking-queued-users');
 
 app.use('/', index);
 app.use('/users', users);
 app.use('/auth', auth);
 app.use('/api', api);
-app.use('/db', db);
+// app.use('/db', db);
+app.use('/db/matchmaking_queued_users', matchmakingQueuedUsers);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -66,7 +70,38 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
+
 // Start the server
-app.listen(process.env.PORT || port, function(){
+var server = app.listen(process.env.PORT || port, function(){
   console.log('Server is running on Port: ', process.env.PORT || port);
 });
+
+// socket.io for communicating with clients
+// const server = http.createServer(app);
+const io = socketIo(server);//.listen(server);
+
+let interval;
+io.on("connection", socket => {
+  console.log("New client connected");
+  app.set('socket', socket); // expose socket to be available in other modules through the app export.
+
+  if (interval) {
+    clearInterval(interval);
+  }
+  // interval = setInterval(() => getApiAndEmit(socket), 10000);
+  socket.on("disconnect", () => {
+    console.log("Client disconnected");
+  });
+});
+
+const getApiAndEmit = async socket => {
+  try {
+    // const res = await axios.get(
+    //   "https://api.darksky.net/forecast/PUT_YOUR_API_KEY_HERE/43.7695,11.2558"
+    // ); // Getting the data from DarkSky
+    socket.emit("found-match", 'hi'); // Emitting a new message. It will be consumed by the client
+  } catch (error) {
+    console.error(`Error: ${error.code}`);
+  }
+};
+
