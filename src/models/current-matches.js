@@ -3,7 +3,11 @@ const mongoose = require('mongoose');
 // define the CurrentMatches model schema
 const CurrentMatchesSchema = new mongoose.Schema({
   // _id: { type: mongoose.Schema.Types.ObjectId, index:true, unique: true },
-  users: { type: [String] }, // changing to string so we dont have weird casting errors...
+  users: { type: [mongoose.Schema.Types.Mixed] },
+  //  [{
+  //    _id: <user id>
+  //    connection_status: <status> enum['connected', 'not connected']
+  //  }, ...]
   mode: String,
   created_at    : { type: Date },
   updated_at    : { type: Date },

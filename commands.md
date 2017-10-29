@@ -18,6 +18,8 @@ Can use these with a collection name
 * db.[collection].drop()
 * db.[collection].reIndex()
 ```Need to reIndex if we change any indexes in the schema... Not available on the free tier... Sad face...```
+* db['matchmaking-queued-users'].drop()
+* db['current-matches'].drop()
 
 ## powershell - Accessing env variables
 

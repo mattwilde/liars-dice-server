@@ -4,26 +4,48 @@ var app = require('../../app'); // required to have access to sockets.
 
 exports.onQueueUpdated = async function() {
   console.log('The queue was updated');
-  let queuedItems = await getMatchmakingQueuedUsers();
+  let queuedItemsCasualCount = await getMatchmakingQueuedUsersCount({ mode: 'casual' });
+  let queuedItemsCompetetiveCount = await getMatchmakingQueuedUsersCount({ mode: 'competetive' });
+
+console.log('CASUAL COUNT:', queuedItemsCasualCount);
+console.log('COMPETETIVE COUNT:', queuedItemsCompetetiveCount);
 
   // create match if users are at least 2
-  //TODO: check for at least 2 in competetive and casual modes separately.
-  if (queuedItems.length >= 2) {
-    let matchUsers = [queuedItems[0].user, queuedItems[1].user];
-
-    let match = await createCurrentMatch({
-      userIds: matchUsers,
-      mode: queuedItems[0].mode, //TODO: still need to deal with the different modes.
-    });
-    // app.get('io').sockets.emit('found-match', match); // emits to ALL sockets.
-    app.get('io').to('matchmaking').emit('found-match', match); // emits only to members of 'matchmaking room'
+  if (queuedItemsCasualCount >= 2) {
+    console.log('casual IN');
+    await initializeMatch({ userCount: 2, mode: 'casual' });
+  }
+  
+  if (queuedItemsCompetetiveCount >= 2) {
+    console.log('competetive IN');
+    
+    await initializeMatch({ userCount: 2, mode: 'competetive' });
   }
 }
 
-async function getMatchmakingQueuedUsers() {
+async function initializeMatch({ userCount = 2, mode = 'casual' }) {
+  console.log('INIT MATCH', userCount, mode);
+  let queuedItems = await getMatchmakingQueuedUsers({ mode });
+  console.log(queuedItems);
+  let matchUsers = queuedItems.slice(0, userCount).map(x => x.user);
+  console.log(matchUsers);
+  
+  let match = await createCurrentMatch({
+    userIds: matchUsers,
+    mode,
+  });
+
+  app.get('io').to('matchmaking').emit('found-match', match); // emits only to members of 'matchmaking room'
+}
+
+/**
+ * Gets the list of matchmaking queued users matching query.
+ * @param {object} query - fields to query on.
+ */
+async function getMatchmakingQueuedUsers(query) {
   return new Promise( (resolve, reject) => {
     try {
-      MatchmakingQueuedUsers.find(function (err, queuedItems){
+      MatchmakingQueuedUsers.find(query, function (err, queuedItems){
         if(err){
           return reject(err);
         }
@@ -39,11 +61,38 @@ async function getMatchmakingQueuedUsers() {
   });
 }
 
-async function createCurrentMatch({ mode, userIds }) {
+/**
+ * Gets the count of matchmaking queued users matching query.
+ * @param {object} query - fields to query on.
+ */
+async function getMatchmakingQueuedUsersCount(query) {
   return new Promise( (resolve, reject) => {
     try {
+      MatchmakingQueuedUsers.count(query, function (err, count){
+        if(err){
+          return reject(err);
+        }
+        else {
+          return resolve(count);
+        }
+      });
+    }
+    catch (e) {
+      console.log(e);
+      return reject(e);
+    }
+  });
+}
+
+async function createCurrentMatch({ mode, userIds }) {
+  return new Promise( (resolve, reject) => {
+    console.log('CREATE', userIds);
+    try {
       let newMatch = new CurrentMatches({ 
-        users: userIds,
+        users: userIds.map(x => { return { 
+          '_id': x, 
+          'connection_status': 'not connected',
+        }}),
         mode: mode,
       });
       newMatch.save((err, match) => {
