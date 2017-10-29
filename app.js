@@ -89,7 +89,9 @@ io.on("connection", socket => {
   });
   
   socket.on('joinroom', function (room) {
+    console.log(`Someone joined ${room}`)
     socket.join(room);
+    io.to(room).emit('user-connected', 'USER CONNECTED');
   });
 });
 
