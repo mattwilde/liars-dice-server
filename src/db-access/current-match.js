@@ -10,11 +10,13 @@ exports.create = async function({ mode, userIds }) {
   return new Promise( (resolve, reject) => {
     try {
       let newMatch = new CurrentMatches({ 
-        users: userIds.map(x => { return { 
+        users: userIds.map((x, index) => { return { 
           '_id': x, 
           'connection_status': 'not connected',
+          'table_position': index + 1,
         }}),
         mode: mode,
+        active_table_position: -1,
       });
       newMatch.save((err, match) => {
         if (err) {

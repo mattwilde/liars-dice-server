@@ -12,32 +12,20 @@ exports.io.on("connection", socket => {
   });
   
   socket.on('joinroom', function ({ room, userId }) {
-    console.log('JOINROOM:', room, userId);
+    console.log('SOCKET:', 'joinroom', { room, userId });
+    
+    // console.log('JOINROOM:', room, userId);
     socket.join(room);
 
     socketMatch.onJoinRoom(room, userId);
 
     io.to(room).emit('user-connected', 'USER CONNECTED');
   });
+
+  //TODO: try to move these handlers to socketMatch (maw)
+  // socket.on('active-table-position', async newActivePosition => {
+  //   console.log('made it');
+  // });
+  socketMatch.onConnection(socket); // add match specific socket handlers
+  
 });
-
-  // module.auth = function (req, res) {
-  //     // This will be available 'outside'.
-  //     // Authy stuff that can be used outside...
-  // };
-
-  // // Other stuff...
-  // module.pickle = function(cucumber, herbs, vinegar) {
-  //     // This will be available 'outside'.
-  //     // Pickling stuff...
-  // };
-
-  // function jarThemPickles(pickle, jar) {
-  //     // This will be NOT available 'outside'.
-  //     // Pickling stuff...
-
-  //     return pickleJar;
-  // };
-
-//   return module;
-// };

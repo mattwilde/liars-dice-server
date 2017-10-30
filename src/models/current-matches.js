@@ -7,8 +7,10 @@ const CurrentMatchesSchema = new mongoose.Schema({
   //  [{
   //    _id: <user id>
   //    connection_status: <status> enum['connected', 'not connected']
+  //    table_position: [1-6]
   //  }, ...]
   mode: String,
+  active_table_position: Number,
   created_at    : { type: Date },
   updated_at    : { type: Date },
 });
