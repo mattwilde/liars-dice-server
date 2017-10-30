@@ -11,21 +11,10 @@ exports.io.on("connection", socket => {
     console.log("Client disconnected");
   });
   
-  socket.on('join-room', function ({ room, userId }) {
-    console.log('SOCKET:', 'join-room', { room, userId });
-    
-    // console.log('JOINROOM:', room, userId);
+  socket.on('join-room', function (room) {
+    console.log('SOCKET RECEIVE:', 'join-room', room);
     socket.join(room);
-
-    // socketMatch.onJoinRoom(room, userId);
-
-    io.to(room).emit('user-connected', 'USER CONNECTED');
   });
 
-  //TODO: try to move these handlers to socketMatch (maw)
-  // socket.on('active-table-position', async newActivePosition => {
-  //   console.log('made it');
-  // });
-  socketMatch.setListeners(socket); // add match specific socket listeners
-  
+  socketMatch.setEvents(socket); // add match specific socket events and listeners
 });

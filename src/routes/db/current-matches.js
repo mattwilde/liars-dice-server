@@ -55,7 +55,7 @@ router.post('/', (req, res) => {
 });
 
 /**
- * removes a user from the matchmaking queue
+ * removes a match by matchId from current-matches
  */
 router.delete('/:matchId', (req, res) => {
   CurrentMatches.deleteOne({ '_id': req.params.matchId }, function (err){
@@ -64,6 +64,20 @@ router.delete('/:matchId', (req, res) => {
     }
     else {
       return res.status(200).json({ message: `Match '${req.params.matchId}' removed from current matches.` });  
+    }
+  });
+});
+
+/**
+ * removes all matches from current-matches
+ */
+router.delete('/', (req, res) => {
+  CurrentMatches.deleteMany({}, function (err){
+    if(err){
+      return res.status(500).json(err);
+    }
+    else {
+      return res.status(200).json({ message: `All matches removed from current matches.` });  
     }
   });
 });

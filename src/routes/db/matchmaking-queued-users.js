@@ -68,4 +68,18 @@ router.delete('/:userId', (req, res) => {
   });
 });
 
+/**
+ * removes a user from the matchmaking queue
+ */
+router.delete('/', (req, res) => {
+  MatchmakingQueuedUsers.deleteMany({}, function (err){
+    if(err){
+      return res.status(500).json(err);
+    }
+    else {
+      return res.status(200).json({ message: `All users removed from queue` });  
+    }
+  });
+});
+
 module.exports = router;
