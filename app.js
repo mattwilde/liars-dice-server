@@ -79,22 +79,5 @@ var server = app.listen(process.env.PORT || port, function(){
 
 // socket.io for communicating with clients
 const io = socketIo(server);
-
-// io.on("connection", socket => {
-//   console.log("New client connected");
-//   //TODO: Is there a way to check to see if a user has already connected? If so, we can kill the first connection
-//   //      and allow the new one to be used instead of both. (maw)
-
-//   socket.on("disconnect", () => {
-//     console.log("Client disconnected");
-//   });
-  
-//   socket.on('joinroom', function (room) {
-//     console.log(`Someone joined ${room}`)
-//     socket.join(room);
-//     io.to(room).emit('user-connected', 'USER CONNECTED');
-//   });
-// });
-
 app.set('io', io); // expose socketIO to outside modules so server can push notifications.
-require('./src/socket/socket'); // initialize socket.
+require('./src/socket/socket'); // initialize socket module
