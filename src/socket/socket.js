@@ -11,13 +11,13 @@ exports.io.on("connection", socket => {
     console.log("Client disconnected");
   });
   
-  socket.on('joinroom', function ({ room, userId }) {
-    console.log('SOCKET:', 'joinroom', { room, userId });
+  socket.on('join-room', function ({ room, userId }) {
+    console.log('SOCKET:', 'join-room', { room, userId });
     
     // console.log('JOINROOM:', room, userId);
     socket.join(room);
 
-    socketMatch.onJoinRoom(room, userId);
+    // socketMatch.onJoinRoom(room, userId);
 
     io.to(room).emit('user-connected', 'USER CONNECTED');
   });
@@ -26,6 +26,6 @@ exports.io.on("connection", socket => {
   // socket.on('active-table-position', async newActivePosition => {
   //   console.log('made it');
   // });
-  socketMatch.onConnection(socket); // add match specific socket handlers
+  socketMatch.setListeners(socket); // add match specific socket listeners
   
 });
