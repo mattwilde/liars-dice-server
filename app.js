@@ -44,6 +44,7 @@ var auth = require('./src/routes/auth');
 var api = require('./src/routes/api');
 // var db = require('./src/routes/db');
 var matchmakingQueuedUsers = require('./src/routes/db/matchmaking-queued-users');
+var currentMatches = require('./src/routes/db/current-matches');
 
 app.use('/', index);
 app.use('/users', users);
@@ -51,6 +52,7 @@ app.use('/auth', auth);
 app.use('/api', api);
 // app.use('/db', db);
 app.use('/db/matchmaking_queued_users', matchmakingQueuedUsers);
+app.use('/db/current_matches', currentMatches);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -70,7 +72,6 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
-
 // Start the server
 var server = app.listen(process.env.PORT || port, function(){
   console.log('Server is running on Port: ', process.env.PORT || port);
@@ -79,20 +80,21 @@ var server = app.listen(process.env.PORT || port, function(){
 // socket.io for communicating with clients
 const io = socketIo(server);
 
-io.on("connection", socket => {
-  console.log("New client connected");
-  //TODO: Is there a way to check to see if a user has already connected? If so, we can kill the first connection
-  //      and allow the new one to be used instead of both. (maw)
+// io.on("connection", socket => {
+//   console.log("New client connected");
+//   //TODO: Is there a way to check to see if a user has already connected? If so, we can kill the first connection
+//   //      and allow the new one to be used instead of both. (maw)
 
-  socket.on("disconnect", () => {
-    console.log("Client disconnected");
-  });
+//   socket.on("disconnect", () => {
+//     console.log("Client disconnected");
+//   });
   
-  socket.on('joinroom', function (room) {
-    console.log(`Someone joined ${room}`)
-    socket.join(room);
-    io.to(room).emit('user-connected', 'USER CONNECTED');
-  });
-});
+//   socket.on('joinroom', function (room) {
+//     console.log(`Someone joined ${room}`)
+//     socket.join(room);
+//     io.to(room).emit('user-connected', 'USER CONNECTED');
+//   });
+// });
 
 app.set('io', io); // expose socketIO to outside modules so server can push notifications.
+require('./src/socket/socket'); // initialize socket.

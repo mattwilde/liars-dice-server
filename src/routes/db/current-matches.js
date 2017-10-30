@@ -31,7 +31,7 @@ router.get('/:matchId', (req, res) => {
         return res.status(404).json({ message: 'Match not found' });  
       }
       else {
-        return res.status(200).json(user);
+        return res.status(200).json(match);
       }
     }
   });
