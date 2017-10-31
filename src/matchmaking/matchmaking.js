@@ -6,6 +6,9 @@ var socket = require('../socket/socket');
 var matchmakingQueuedUsers = require('../db-access/matchmaking-queued-users');
 var currentMatch = require('../db-access/current-match');
 
+var Chance = require('chance'),
+chance = new Chance();
+
 // Module functions
 
 /**
@@ -41,9 +44,32 @@ async function initializeMatch({ userCount = 2, mode = 'casual' }) {
   let matchUsers = queuedItems.slice(0, userCount).map(x => x.user);
   
   let match = await currentMatch.create({
-    userIds: matchUsers,
+    users: matchUsers.map((x, index) => {
+      return {
+        '_id': x, 
+        'connection_status': 'not connected',
+        'table_position': index + 1,
+        'chip_amount': 125,
+        'dice': createDiceArray(5),
+        'previous_action': {},
+      }
+    }),
     mode,
   });
 
   socket.io.to('matchmaking').emit('found-match', match); // emits only to members of 'matchmaking room'
+}
+
+function createDiceArray(amount)
+{
+    var result = [];
+    for (var i = 0; i < amount; i++) {
+      result.push({
+        '_id': chance.guid(),
+        'face': chance.d6(),
+        'hidden': true,
+        'lost': false,
+      });
+    }
+    return result;
 }

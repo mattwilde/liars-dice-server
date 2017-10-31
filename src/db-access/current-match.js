@@ -6,15 +6,11 @@ var CurrentMatches = require('../models/current-matches');
  *    {String} mode - type of match. either casual or competetive
  *    {[String]} userIds - array of user IDs to insert into the match
  */
-exports.create = async function({ mode, userIds }) {
+exports.create = async function({ mode, users }) {
   return new Promise( (resolve, reject) => {
     try {
       let newMatch = new CurrentMatches({ 
-        users: userIds.map((x, index) => { return { 
-          '_id': x, 
-          'connection_status': 'not connected',
-          'table_position': index + 1,
-        }}),
+        users: users,
         mode: mode,
         active_table_position: -1,
       });
