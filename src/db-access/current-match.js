@@ -6,13 +6,18 @@ var CurrentMatches = require('../models/current-matches');
  *    {String} mode - type of match. either casual or competetive
  *    {[String]} userIds - array of user IDs to insert into the match
  */
-exports.create = async function({ mode, users }) {
+exports.create = async function({ users, mode, min_bet, max_bet, max_buy_in, dice_chip_pool, active_table_position, pot }) {
   return new Promise( (resolve, reject) => {
     try {
       let newMatch = new CurrentMatches({ 
-        users: users,
-        mode: mode,
-        active_table_position: -1,
+        'users': users,
+        'mode': mode,
+        'min_bet': min_bet,
+        'max_bet': max_bet,
+        'max_buy_in': max_buy_in,
+        'dice_chip_pool': dice_chip_pool,
+        'active_table_position': active_table_position,
+        'pot': pot,
       });
       newMatch.save((err, match) => {
         if (err) {
