@@ -81,7 +81,7 @@ exports.setEvents = async function (socket) {
     }
   });
 
-  socket.on('player-action-pass', async data => {
+  socket.on('player-action-pass', async (data, errCb) => {
     console.log('SOCKET RECEIVE:', 'player-action-pass', data);
     let match = await currentMatch.getSingle({ '_id': data.matchId });
     let user = getUserByIdFromMatch(data.userId, match);
@@ -92,6 +92,11 @@ exports.setEvents = async function (socket) {
     let updateChipAmount = user.chip_amount - passAmount;
     let updatePot = match.pot + passAmount;
     let updateTablePosition = getNextTablePosition(match);
+
+    // If we don't have a next table position, that means we are down to the last player. The last player cannot pass. 
+    if (updateTablePosition === -1) {
+      errCb('Cannot pass on your last turn, dude');
+    }
     
     // update record
     let response = await currentMatch.update({ '_id': data.matchId, 'users._id': data.userId }, { 
@@ -134,7 +139,6 @@ exports.setEvents = async function (socket) {
 }
 
 function getUserByIdFromMatch(id, match) {
-  console.log(match);
   let users = match.users.filter(x => x._id === id);
   if (users && users.length === 1) {
     return users[0];
@@ -144,8 +148,8 @@ function getUserByIdFromMatch(id, match) {
 }
 
 function getCurrentPlayerIndex(users, activeTablePosition) {
-  let activeUsers = users.filter(x => !isPreviousActionPass()); // get all users that haven't passed.
-  let index = activeUsers.findIndex(x => x.table_position === activeTablePosition);
+  // let activeUsers = users.filter(x => !isPreviousActionPass()); // get all users that haven't passed.
+  let index = users.findIndex(x => x.table_position === activeTablePosition);
   if (index < 0) {
     console.log(`Failed to find current player index.`);
   }
@@ -164,7 +168,10 @@ function getNextTablePosition(match) {
   if (index !== users.length - 1) { // if not last item in index, get next item
     nextIndex = index + 1;
   }
-
+  if (users.length === 1) { // handle if last user
+    return -1;
+  }
+  
   return users[nextIndex].table_position;
 }
 
