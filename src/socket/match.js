@@ -1,7 +1,6 @@
 /**
  * This module contains all of the match related socket events and listeners.
  */
-
 const socketIO = require('./socket');
 const currentMatch = require('../db-access/current-match');
 
@@ -34,13 +33,10 @@ exports.setEvents = async function (socket) {
     if (response && response.ok === 1) { // on success
       // push update to clients
       let updatedMatch = await currentMatch.getSingle({ '_id': data.matchId });
-      users = updatedMatch.users.filter(x => x._id === data.userId);
-      if (users && users.length === 1) {
-        user = users[0];
-      }
-        
-      socketIO.io.to(room).emit('match-user-connected', user); // return full user that just connected.
-      console.log('SOCKET EMIT TO ROOM:', room, 'match-user-connected', user);
+      user = getUserByIdFromMatch(data.userId, match);
+      let payload = { id: user._id, connectionStatus: 'connected'};
+      socketIO.io.to(room).emit('match-user-connected', { _id: user._id, connection_status: 'connected'}); // return full user that just connected.
+      console.log('SOCKET EMIT TO ROOM:', room, 'match-user-connected', payload);
       
       // check if we have everyone connected. if so, then push update to start game. Setting active_table_position to 1 should indicate
       // to the client to start the game.
@@ -84,4 +80,104 @@ exports.setEvents = async function (socket) {
       console.log('Failed to update active_table_position.');
     }
   });
+
+  socket.on('player-action-pass', async data => {
+    console.log('SOCKET RECEIVE:', 'player-action-pass', data);
+    let match = await currentMatch.getSingle({ '_id': data.matchId });
+    let user = getUserByIdFromMatch(data.userId, match);
+    
+    // arrange data in preparation for update
+    let passAmount = match.min_bet;
+    let updatePrevAction = { pass: true };
+    let updateChipAmount = user.chip_amount - passAmount;
+    let updatePot = match.pot + passAmount;
+    let updateTablePosition = getNextTablePosition(match);
+    
+    // update record
+    let response = await currentMatch.update({ '_id': data.matchId, 'users._id': data.userId }, { 
+      'users.$.previous_action': updatePrevAction,
+      'users.$.chip_amount': updateChipAmount,
+      'pot': updatePot,
+      'active_table_position': updateTablePosition,
+    });
+    if (response && response.ok === 1) { // on success
+      // push update to clients
+      let emitData = {
+        _id: data.userId, 
+        previous_action: updatePrevAction,
+        chip_amount: updateChipAmount,
+        pot: updatePot,
+        active_table_position: updateTablePosition,
+      };
+      socketIO.io.to(`match ${data.matchId}`).emit('player-action-pass', emitData); // return new active table position
+      console.log('SOCKET EMIT TO ROOM:', `match ${data.matchId}`, 'player-action-pass', emitData);
+    }
+    else {
+      console.log('Failed to update match for player-action-pass event.');
+    }
+  });
+
+  // socket.on('player-action-pass', async data => {
+  //   console.log('SOCKET RECEIVE:', 'player-action-pass', data);
+
+  //   // update record
+  //   let response = await currentMatch.update({ '_id': data.matchId }, { 'pass': true });
+  //   if (response && response.ok === 1) { // on success
+  //     // push update to clients
+  //     socketIO.io.to(`match ${data.matchId}`).emit('player-action-pass', { pass: true, activeTablePosition: 1); // return new active table position
+  //     console.log('SOCKET EMIT TO ROOM:', `match ${data.matchId}`, 'player-action-pass', data.activeTablePosition);
+  //   }
+  //   else {
+  //     console.log('Failed to update active_table_position.');
+  //   }
+  // });
+}
+
+function getUserByIdFromMatch(id, match) {
+  console.log(match);
+  let users = match.users.filter(x => x._id === id);
+  if (users && users.length === 1) {
+    return users[0];
+  }
+
+  return null;
+}
+
+function getCurrentPlayerIndex(users, activeTablePosition) {
+  let activeUsers = users.filter(x => !isPreviousActionPass()); // get all users that haven't passed.
+  let index = activeUsers.findIndex(x => x.table_position === activeTablePosition);
+  if (index < 0) {
+    console.log(`Failed to find current player index.`);
+  }
+
+  return index;  
+}
+
+function getNextTablePosition(match) {
+  // let currentPosition = match.active_table_position;
+  let totalPlayers = match.users.length;
+  let users = match.users.filter(x => !isPreviousActionPass(x.previous_action)); // get all users that haven't passed.
+  users = users.sort(compareTablePosition); // sort by table position. should already be in this order but need to make sure.
+
+  let index = getCurrentPlayerIndex(users, match.active_table_position);
+  let nextIndex = 0;
+  if (index !== users.length - 1) { // if not last item in index, get next item
+    nextIndex = index + 1;
+  }
+
+  return users[nextIndex].table_position;
+}
+
+function isPreviousActionPass(prevAction) {
+  return prevAction
+    && prevAction.hasOwnProperty('pass')
+    && prevAction.pass === true;
+}
+
+function compareTablePosition(a,b) {
+  if (a.table_position < b.table_position)
+    return -1;
+  if (a.table_position > b.table_position)
+    return 1;
+  return 0;
 }

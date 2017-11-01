@@ -39,6 +39,8 @@ const CurrentMatchesSchema = new mongoose.Schema({
   min_bet: Number, // 5
   max_bet: Number, // 10
   max_buy_in: Number, // 125 (25xmB)
+  dice_chip_pool: Number, // 150 (30xmB)
+  pot: Number, // 0
   active_table_position: Number,
   created_at    : { type: Date },
   updated_at    : { type: Date },
@@ -57,7 +59,7 @@ CurrentMatchesSchema.pre('save', function(next){
  * The pre-save hook method.
  */
 CurrentMatchesSchema.pre('save', function saveHook(next) {
-  // const matchmaking = require('../matchmaking/matchmaking.js');
+  // const matchmaking = require('../app/matchmaking.js');
   // matchmaking.onQueueUpdated();
   return next();
 });
