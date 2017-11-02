@@ -1,6 +1,7 @@
 /**
  * This module contains all of the match related socket events and listeners.
  */
+const jwt = require('jsonwebtoken');
 const socketIO = require('./socket');
 const currentMatch = require('../db-access/current-match');
 
@@ -18,6 +19,19 @@ exports.setEvents = async function (socket) {
 
     let room = `match ${data.matchId}`;
     socket.join(room);
+    console.log(`User '${data.userId}' joined room '${room}'`);
+
+    // decode the token to get user and then add them to a user-specific room.
+    jwt.verify(socket.handshake.query.token, process.env.LIARS_DICE_JWT_SECRET, (err, decoded) => {
+      if (err) { 
+        socket.disconnect('unauthorized');
+        return; 
+      }
+
+      const userId = decoded.sub;
+      socket.join(`match ${data.matchId} ${userId}`);
+      console.log(`User '${userId}' joined room 'match ${data.matchId} ${userId}'`);
+    });
 
     let match = await currentMatch.getSingle({ '_id': data.matchId });
     // get index of user we are updating
