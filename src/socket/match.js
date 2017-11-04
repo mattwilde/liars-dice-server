@@ -6,6 +6,9 @@ const socketIO = require('./socket');
 const currentMatch = require('../db-access/current-match');
 const matchApp = require('../app/match');
 
+var Chance = require('chance'),
+chance = new Chance();
+
 exports.setEvents = async function (socket) {
   /**
    * join-match - This event is sent when a client is attempting to join a match.  User connection status will be updated
@@ -175,20 +178,88 @@ exports.setEvents = async function (socket) {
       console.log('Failed to update match for player-action-bid event.');
     }
   });
-  // socket.on('player-action-pass', async data => {
-  //   console.log('SOCKET RECEIVE:', 'player-action-pass', data);
 
-  //   // update record
-  //   let response = await currentMatch.update({ '_id': data.matchId }, { 'pass': true });
-  //   if (response && response.ok === 1) { // on success
-  //     // push update to clients
-  //     socketIO.io.to(`match ${data.matchId}`).emit('player-action-pass', { pass: true, activeTablePosition: 1); // return new active table position
-  //     console.log('SOCKET EMIT TO ROOM:', `match ${data.matchId}`, 'player-action-pass', data.activeTablePosition);
-  //   }
-  //   else {
-  //     console.log('Failed to update active_table_position.');
-  //   }
-  // });
+  socket.on('player-action-bid-and-reroll', async (data, errCb) => {
+    console.log('SOCKET RECEIVE:', 'player-action-bid-and-reroll', data);
+    let match = await currentMatch.getSingle({ '_id': data.matchId });
+    let user = getUserByIdFromMatch(data.userId, match);
+   
+    // validate bid
+    if (!matchApp.isBidValid(match, data.bid)) {
+      errCb('Illegal bid.');
+      return;
+    }
+  
+    // arrange data in preparation for update
+    let diceToReroll = user.dice.filter(x => !x.lost && x.hidden); // filter out non-hidden or lost dice
+    data.diceShown.map(x => {
+      diceToReroll = diceToReroll.filter(d => d._id !== x); // filter out dice we will show.
+    });
+
+    let updatePrevAction = { 
+      bid: data.bid,
+      reroll: {
+        dice_held: data.diceShown,
+        rolled_dice: diceToReroll.map(x => { return {
+          _id: x._id,
+          face: x.face
+        }})
+      }
+    };
+    let updateTablePosition = getNextTablePosition(match);
+    let diceIndexes = [];
+    data.diceShown.map(d => {
+      let idx = user.dice.findIndex(x => x._id === d);
+      diceIndexes.push(idx);
+      user.dice[idx].hidden = false;
+    });
+    
+    let rerollDiceIndexes = [];
+    updatePrevAction.reroll.rolled_dice.map(d => {
+      let idx = user.dice.findIndex(x => x._id === d._id);
+      rerollDiceIndexes.push(idx);
+      user.dice[idx].face = chance.d6();
+    });
+    
+    let updateUserDice = user.dice;
+        
+    // If we don't have a next table position, that means we are down to the last player. The last player cannot pass. 
+    if (updateTablePosition === -1) {
+      errCb('Cannot bid if there are no other players still in.');
+    }
+    
+    let updateBody = { 
+      'users.$.previous_action': updatePrevAction,
+      'active_table_position': updateTablePosition,
+    };
+    
+    diceIndexes.map(x => {
+      updateBody[`users.$.dice.${x}.hidden`] = updateUserDice[x].hidden;
+    });
+
+    rerollDiceIndexes.map(x => {
+      updateBody[`users.$.dice.${x}.face`] = updateUserDice[x].face;
+    });
+    console.log(updateBody);
+
+    // update record
+    let response = await currentMatch.update({ '_id': data.matchId, 'users._id': data.userId }, updateBody);
+    if (response && response.ok === 1) { // on success
+      // push update to clients
+      let emitData = {
+        _id: data.userId, 
+        dice: updateUserDice,
+        previous_action: updatePrevAction,
+        active_table_position: updateTablePosition,
+      };
+      socketIO.io.to(`match ${data.matchId}`).emit('player-action-bid-and-reroll', emitData); // return new active table position
+      console.log('SOCKET EMIT TO ROOM:', `match ${data.matchId}`, 'player-action-bid-and-reroll', emitData);
+    }
+    else {
+      console.log('Failed to update match for player-action-bid-and-reroll event.');
+    }
+  });
+  
 }
 
 function getUserByIdFromMatch(id, match) {
