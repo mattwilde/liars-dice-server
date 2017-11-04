@@ -17,7 +17,7 @@ const CurrentMatchesSchema = new mongoose.Schema({
   //    }]
   //    previous_action: {
   //      bid: {
-  //        value:
+  //        face:
   //        count:
   //      },
   //      reroll: {

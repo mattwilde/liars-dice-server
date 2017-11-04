@@ -4,6 +4,7 @@
 const jwt = require('jsonwebtoken');
 const socketIO = require('./socket');
 const currentMatch = require('../db-access/current-match');
+const matchApp = require('../app/match');
 
 exports.setEvents = async function (socket) {
   /**
@@ -136,6 +137,44 @@ exports.setEvents = async function (socket) {
     }
   });
 
+  socket.on('player-action-bid', async (data, errCb) => {
+    console.log('SOCKET RECEIVE:', 'player-action-bid', data);
+    let match = await currentMatch.getSingle({ '_id': data.matchId });
+
+    // validate bid
+    if (!matchApp.isBidValid(match, data.bid)) {
+      errCb('Illegal bid.');
+      return;
+    }
+  
+    // arrange data in preparation for update
+    let updatePrevAction = { bid: data.bid };
+    let updateTablePosition = getNextTablePosition(match);
+    
+    // If we don't have a next table position, that means we are down to the last player. The last player cannot pass. 
+    if (updateTablePosition === -1) {
+      errCb('Cannot bid if there are no other players still in.');
+    }
+    
+    // update record
+    let response = await currentMatch.update({ '_id': data.matchId, 'users._id': data.userId }, { 
+      'users.$.previous_action': updatePrevAction,
+      'active_table_position': updateTablePosition,
+    });
+    if (response && response.ok === 1) { // on success
+      // push update to clients
+      let emitData = {
+        _id: data.userId, 
+        previous_action: updatePrevAction,
+        active_table_position: updateTablePosition,
+      };
+      socketIO.io.to(`match ${data.matchId}`).emit('player-action-bid', emitData); // return new active table position
+      console.log('SOCKET EMIT TO ROOM:', `match ${data.matchId}`, 'player-action-bid', emitData);
+    }
+    else {
+      console.log('Failed to update match for player-action-bid event.');
+    }
+  });
   // socket.on('player-action-pass', async data => {
   //   console.log('SOCKET RECEIVE:', 'player-action-pass', data);
 
