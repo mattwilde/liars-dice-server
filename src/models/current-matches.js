@@ -30,8 +30,8 @@ const CurrentMatchesSchema = new mongoose.Schema({
   //      pass: false,
   //      challenge: {
   //        action: [bet, call, or raise]
-  //        delta_chip_amount:
-  //        aggregate_chip_amount:
+  //        delta_bet:
+  //        aggregate_bet:
   //      } 
   //    }
   //  }, ...]
@@ -41,6 +41,8 @@ const CurrentMatchesSchema = new mongoose.Schema({
   max_buy_in: Number, // 125 (25xmB)
   dice_chip_pool: Number, // 150 (30xmB)
   pot: Number, // 0
+  betting_cap: Number, // 5
+  betting_count: Number, // 0
   active_table_position: Number,
   created_at    : { type: Date },
   updated_at    : { type: Date },

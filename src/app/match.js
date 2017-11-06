@@ -12,7 +12,7 @@ chance = new Chance();
  * to start.
  * @param {object} param0 
  */
-exports.createNewMatch = async function({ userCount = 6, mode = 'casual', diceCount = 5, minBet = 5, maxBet = 10, chipAmount = 125 }) {
+exports.createNewMatch = async function({ userCount = 6, mode = 'casual', diceCount = 5, minBet = 5, maxBet = 10, chipAmount = 125, betting_cap = 5 }) {
   console.log('INIT MATCH', userCount, mode);
   let queuedItems = await matchmakingQueuedUsers.get({ mode });
   let matchUsers = queuedItems.slice(0, userCount).map(x => x.user);
@@ -35,6 +35,8 @@ exports.createNewMatch = async function({ userCount = 6, mode = 'casual', diceCo
     'dice_chip_pool': minBet * diceCount * userCount,
     'active_table_position': -1,
     'pot': 0,
+    'betting_cap': 5,
+    'betting_count': 0,
   });
 
   socket.io.to('matchmaking').emit('found-match', match); // emits only to members of 'matchmaking room'
@@ -60,6 +62,32 @@ exports.isBidValid = function(match, bid) {
   //   return false;
   // }
 
+  return true;
+}
+
+exports.isChallengeBetValid = function(match, bet) {
+  // check betting cap.
+  if (match.betting_count >= match.betting_cap) {
+    console.log('Bet cap reached.');
+    return false;
+  }
+
+  // check that bet value is divisible by min bet
+  if (bet % match.min_bet !== 0) {
+    console.log('Bet must be increments of minimum bet.');
+    return false;
+  }
+
+  //check that bet <= max bet
+  if (bet > match.max_bet) {
+    console.log('Bet cannot be larger than max bet.');
+    return false;
+  }
+
+  //check that only can bet on first bet of challenge. all other "bets" would be calls or raises.
+  if (match.betting_count > 0) {
+    console.log('Cannot do an initial challenge bet after challenge has already been initiated.');
+  }
   return true;
 }
 

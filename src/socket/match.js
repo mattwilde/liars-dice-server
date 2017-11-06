@@ -259,6 +259,53 @@ exports.setEvents = async function (socket) {
       console.log('Failed to update match for player-action-bid-and-reroll event.');
     }
   });
+
+  socket.on('player-action-challenge-bet', async (data, errCb) => {
+    console.log('SOCKET RECEIVE:', 'player-challenge-bet', data);
+    let match = await currentMatch.getSingle({ '_id': data.matchId });
+
+    // validate challenge bet
+    if (!matchApp.isChallengeBetValid(match, data.bet)) {
+      errCb('Illegal challenge bet.');
+      return;
+    }
+
+    // arrange data in preparation for update
+    let updatePrevAction = { challenge: {
+      action: 'bet',
+      delta_bet: data.bet,
+      aggregate_bet: data.bet,
+     }};
+    let updateTablePosition = getPrevTablePosition(match); // set position back to bettor
+    let updateBettingCount = 1;
+    let updatePot = match.pot + data.bet;
+    
+    // If we don't have a next table position, that means we are down to the last player. The last player cannot pass. 
+    if (updateTablePosition === -1) {
+      errCb('Cannot challenge if there are no other players still in.');
+    }
+    
+    // update record
+    let response = await currentMatch.update({ '_id': data.matchId, 'users._id': data.userId }, { 
+      'users.$.previous_action': updatePrevAction,
+      'active_table_position': updateTablePosition,
+    });
+    if (response && response.ok === 1) { // on success
+      // push update to clients
+      let emitData = {
+        _id: data.userId, 
+        previous_action: updatePrevAction,
+        active_table_position: updateTablePosition,
+        betting_count: updateBettingCount,
+        pot: updatePot,
+      };
+      socketIO.io.to(`match ${data.matchId}`).emit('player-action-challenge-bet', emitData); // return new active table position
+      console.log('SOCKET EMIT TO ROOM:', `match ${data.matchId}`, 'player-action-challenge-bet', emitData);
+    }
+    else {
+      console.log('Failed to update match for player-action-challenge-bet event.');
+    }
+  });
   
 }
 
@@ -297,6 +344,24 @@ function getNextTablePosition(match) {
   }
   
   return users[nextIndex].table_position;
+}
+
+function getPrevTablePosition(match) {
+  // let currentPosition = match.active_table_position;
+  let totalPlayers = match.users.length;
+  let users = match.users.filter(x => !isPreviousActionPass(x.previous_action)); // get all users that haven't passed.
+  users = users.sort(compareTablePosition); // sort by table position. should already be in this order but need to make sure.
+
+  let index = getCurrentPlayerIndex(users, match.active_table_position);
+  let prevIndex = users.length - 1;
+  if (index !== 0) { // if not first item in index, get prev item
+    prevIndex = index - 1;
+  }
+  if (users.length === 1) { // handle if last user
+    return -1;
+  }
+  
+  return users[prevIndex].table_position;
 }
 
 function isPreviousActionPass(prevAction) {

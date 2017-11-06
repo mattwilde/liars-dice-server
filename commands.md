@@ -27,5 +27,7 @@ Can use these with a collection name
 * Typing in ```$env:MY_NEW_VAR='hello'``` will create/update an environment variable..
 
 ## Liars Dice secret environment variables
-* LIARS_DICE_DB_AUTH
-* LIARS_DICE_JWT_SECRET
+* LIARS_DICE_DB_AUTH=<auth>
+* LIARS_DICE_JWT_SECRET=<secret>
+* LIARS_DICE_DB_NAME=dev
+* LIARS_DICE_WEB_URL=http://localhost:3000/
