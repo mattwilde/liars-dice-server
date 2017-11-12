@@ -306,6 +306,59 @@ exports.setEvents = async function (socket) {
       console.log('Failed to update match for player-action-challenge-bet event.');
     }
   });
+
+  socket.on('player-action-challenge-call', async (data, errCb) => {
+    console.log('SOCKET RECEIVE:', 'player-challenge-call', data);
+    let match = await currentMatch.getSingle({ '_id': data.matchId });
+
+//TODO: maw - will need to look at last challenger and validate that the player had either bet or raised.
+
+    // validate challenge call
+    // if (!matchApp.isChallengeCallValid(match)) {
+    //   errCb('Illegal challenge call.');
+    //   return;
+    // }
+    
+//TODO: maw - need to cycle through previous players until we find the previous challenge.  Then we need to look at their aggregate bet and try to match.
+              //calculate what the delta needs to be to match current bet. if player funds are too low, then put in rest of money as all in. only put the matched
+              //money into the pot at this point. extras go back to player that had him covered.
+    // arrange data in preparation for update
+    // let updatePrevAction = { challenge: {
+    //   action: 'call',
+    //   delta_bet: data.bet,
+    //   aggregate_bet: data.bet,
+    //  }};
+    let updateTablePosition = -1; // calling a challenge marks the end of the round.
+    // let updateBettingCount = 1;
+    // let updatePot = match.pot + data.bet;
+    
+    // If we don't have a next table position, that means we are down to the last player. The last player cannot pass. 
+    if (updateTablePosition === -1) {
+      errCb('Cannot challenge if there are no other players still in.');
+    }
+    
+    // update record
+    let response = await currentMatch.update({ '_id': data.matchId, 'users._id': data.userId }, { 
+//TODO: maw - resolve cash and dice here based on challenge. probably also need to store winner of challenge in the database.
+      'users.$.previous_action': updatePrevAction,
+      'active_table_position': updateTablePosition,
+    });
+    if (response && response.ok === 1) { // on success
+      // push update to clients
+      let emitData = {
+        _id: data.userId, 
+        previous_action: updatePrevAction,
+        active_table_position: updateTablePosition,
+        // betting_count: updateBettingCount,
+        // pot: updatePot,
+      };
+      socketIO.io.to(`match ${data.matchId}`).emit('player-action-challenge-call', emitData); // return new active table position
+      console.log('SOCKET EMIT TO ROOM:', `match ${data.matchId}`, 'player-action-challenge-call', emitData);
+    }
+    else {
+      console.log('Failed to update match for player-action-challenge-call event.');
+    }
+  });
   
 }
 
