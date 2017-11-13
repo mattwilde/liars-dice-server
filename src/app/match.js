@@ -91,6 +91,14 @@ exports.isChallengeBetValid = function(match, bet) {
   return true;
 }
 
+exports.isChallengeCallValid = function(match, user, prevUser) {
+  //check that only can bet on first bet of challenge. all other "bets" would be calls or raises.
+  if (match.betting_count < 1) {
+    console.log('Cannot call a challenge if no challenge has already been initiated.');
+  }
+  return true;
+}
+
 /**
  * Creates an array of random dice for use in current-match
  * @param {number} amount - number of dice in array to create

@@ -310,50 +310,68 @@ exports.setEvents = async function (socket) {
   socket.on('player-action-challenge-call', async (data, errCb) => {
     console.log('SOCKET RECEIVE:', 'player-challenge-call', data);
     let match = await currentMatch.getSingle({ '_id': data.matchId });
+    let user = getUserByIdFromMatch(data.userId, match);
 
-//TODO: maw - will need to look at last challenger and validate that the player had either bet or raised.
+    let prevPosition = getPrevTablePosition(match, true); // gets previous table position that challenged.
+    let prevUser = getUserByTablePosition(match, prevPosition);
+    if (prevUser < 0) {
+      errCb('Could not find previous challenger.');
+      return;
+    }
+
+    let userToCall = prevUser.previous_action.aggregate_bet - user.previous_action.aggregate_bet;
+    let totalBet = prevUser.previous_action.aggregate_bet;
+    if (user.chip_amount < userToCall) {
+      totalBet = totalBet - (userToCall - user.chip_amount);
+      userToCall = user.chip_amount;
+    }
 
     // validate challenge call
-    // if (!matchApp.isChallengeCallValid(match)) {
-    //   errCb('Illegal challenge call.');
-    //   return;
-    // }
-    
-//TODO: maw - need to cycle through previous players until we find the previous challenge.  Then we need to look at their aggregate bet and try to match.
-              //calculate what the delta needs to be to match current bet. if player funds are too low, then put in rest of money as all in. only put the matched
-              //money into the pot at this point. extras go back to player that had him covered.
-    // arrange data in preparation for update
-    // let updatePrevAction = { challenge: {
-    //   action: 'call',
-    //   delta_bet: data.bet,
-    //   aggregate_bet: data.bet,
-    //  }};
-    let updateTablePosition = -1; // calling a challenge marks the end of the round.
-    // let updateBettingCount = 1;
-    // let updatePot = match.pot + data.bet;
-    
-    // If we don't have a next table position, that means we are down to the last player. The last player cannot pass. 
-    if (updateTablePosition === -1) {
-      errCb('Cannot challenge if there are no other players still in.');
+    if (!matchApp.isChallengeCallValid(match, prevUser)) {
+      errCb('Illegal challenge call.');
+      return;
     }
+    
+    // arrange data in preparation for update
+    let updatePrevAction = { challenge: {
+      action: 'call',
+      delta_bet: userToCall,
+      aggregate_bet: totalBet,
+     }};
+    let updateUserChips = user.chip_amount - totalBet;
+    let updatePrevUserChips = prevUser.chip_amount - totalBet;
+    let updateTablePosition = -1; // calling a challenge marks the end of the round.
+    let updatePot = match.pot + (totalBet * 2);
     
     // update record
     let response = await currentMatch.update({ '_id': data.matchId, 'users._id': data.userId }, { 
 //TODO: maw - resolve cash and dice here based on challenge. probably also need to store winner of challenge in the database.
       'users.$.previous_action': updatePrevAction,
+      'users.$.chip_amount': updateUserChips,
       'active_table_position': updateTablePosition,
+      'pot': updatePot,
     });
     if (response && response.ok === 1) { // on success
-      // push update to clients
-      let emitData = {
-        _id: data.userId, 
-        previous_action: updatePrevAction,
-        active_table_position: updateTablePosition,
-        // betting_count: updateBettingCount,
-        // pot: updatePot,
-      };
-      socketIO.io.to(`match ${data.matchId}`).emit('player-action-challenge-call', emitData); // return new active table position
-      console.log('SOCKET EMIT TO ROOM:', `match ${data.matchId}`, 'player-action-challenge-call', emitData);
+      let responsePrevUser = await currentMatch.update({ '_id': data.matchId, 'users._id': prevUser._id }, { 
+        //TODO: maw - resolve cash and dice here based on challenge. probably also need to store winner of challenge in the database.
+        'users.$.chip_amount': updatePrevUserChips,
+      });
+      if (responsePrevUser && responsePrevUser.ok === 1) { // on success
+        // push update to clients
+        let emitData = {
+          _id: data.userId, 
+          previous_action: updatePrevAction,
+          chip_amount: updateUserChips,
+          active_table_position: updateTablePosition,
+          pot: updatePot,
+          otherUser: {
+            _id: prevUser._id,
+            chip_amount: updatePrevUserChips,
+          }
+        };
+        socketIO.io.to(`match ${data.matchId}`).emit('player-action-challenge-call', emitData); // return new active table position
+        console.log('SOCKET EMIT TO ROOM:', `match ${data.matchId}`, 'player-action-challenge-call', emitData);
+      }
     }
     else {
       console.log('Failed to update match for player-action-challenge-call event.');
@@ -399,10 +417,10 @@ function getNextTablePosition(match) {
   return users[nextIndex].table_position;
 }
 
-function getPrevTablePosition(match) {
+function getPrevTablePosition(match, isChallenge = false) {
   // let currentPosition = match.active_table_position;
   let totalPlayers = match.users.length;
-  let users = match.users.filter(x => !isPreviousActionPass(x.previous_action)); // get all users that haven't passed.
+  let users = match.users.filter(x => !isPreviousActionPass(x.previous_action) && (isChallenge ? isPreviousActionPass(x.previous_action) : true)); // get all users that haven't passed.
   users = users.sort(compareTablePosition); // sort by table position. should already be in this order but need to make sure.
 
   let index = getCurrentPlayerIndex(users, match.active_table_position);
@@ -417,10 +435,25 @@ function getPrevTablePosition(match) {
   return users[prevIndex].table_position;
 }
 
+function getUserByTablePosition(match, tablePosition) {
+  let users = match.users.filter(x => x.table_position === tablePosition);
+  if (users && users.length === 1) {
+    return users[0];
+  }
+  else {
+    return -1;
+  }
+}
+
 function isPreviousActionPass(prevAction) {
   return prevAction
     && prevAction.hasOwnProperty('pass')
     && prevAction.pass === true;
+}
+
+function isPreviousActionChallenge(prevAction) {
+  return prevAction
+    && prevAction.hasOwnProperty('challenge');
 }
 
 function compareTablePosition(a,b) {
